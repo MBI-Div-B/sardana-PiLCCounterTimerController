@@ -40,22 +40,25 @@ class PiLCCounterTimerController(CounterTimerController):
         self._log.debug('AddDevice(%d): entering...' % axis)
 
     def ReadOne(self, axis):
+        self._log.debug('ReadOne(%d): entering...' % axis)
         return time.time()-self.__start_time
 
     def StateOne(self, axis):
         """Get the dummy trigger/gate state"""
+        
+        self._log.debug('StateOne(%d): entering...' % axis)
         try:
-            self._log.debug('StateOne(%d): entering...' % axis)
             sta = State.On
             status = "Stopped"
-            
+                            
             if self.proxy.ReadFPGA(0x06) > 0:
                 sta = State.Moving
                 status = "Moving"
             self._log.debug('StateOne(%d): returning (%s, %s)' %
-                            (axis, sta, status))
+                                    (axis, sta, status))
         except Exception as e:
-            print(e)
+            return State.Fault, 'Fault'
+
         return sta, status
 
     def PrepareOne(self, axis, value, repetitions, latency_time, nb_starts):
@@ -68,7 +71,7 @@ class PiLCCounterTimerController(CounterTimerController):
     def LoadOne(self, axis, value, repetitions, latency_time):
         pass
 
-    def StartOne(self, axis, value=None):
+    def StartOne(self, axis, value):
         self._log.debug('StartOne(%d): entering...' % axis)
         if self.__freerunning:
             self.proxy.WriteFPGA([0x01,2])
