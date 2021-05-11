@@ -3,6 +3,7 @@ from sardana.pool.controller import CounterTimerController
 from sardana.pool.controller import Type, Description, DefaultValue, Access, DataAccess, Memorized, Memorize
 from tango import DeviceProxy
 import time
+import numpy as np
 
 
 class PiLCCounterTimerController(CounterTimerController):
@@ -12,7 +13,7 @@ class PiLCCounterTimerController(CounterTimerController):
 
     """
     ctrl_properties = {'tangoFQDN': {Type: str,
-                                     Description: 'The FQDN of the CAEN FastPS Tango DS',
+                                     Description: 'The FQDN of the PiLCTriggerGateGenerator Tango DS',
                                      DefaultValue: 'domain/family/member'},
                        }
     
@@ -30,62 +31,59 @@ class PiLCCounterTimerController(CounterTimerController):
     def __init__(self, inst, props, *args, **kwargs):
         """Constructor"""
         CounterTimerController.__init__(self, inst, props, *args, **kwargs)
-        print('PiLC Initialization on {:s} ...'.format(self.tangoFQDN))
-        self._log.info('PiLC Initialization ...')
+        self._log.info('PiLCTriggerGateGenerator Initialization on {:s} ...'.format(self.tangoFQDN))
         self.proxy = DeviceProxy(self.tangoFQDN)
-        print('SUCCESS')
+        self._log.info('SUCCESS')
         self.__start_time = None
 
     def AddDevice(self, axis):
         self._log.debug('AddDevice(%d): entering...' % axis)
 
     def ReadOne(self, axis):
-        self._log.debug('ReadOne(%d): entering...' % axis)
+        self._log.info('ReadOne(%d): entering...' % axis)
         return time.time()-self.__start_time
 
     def StateOne(self, axis):
-        """Get the dummy trigger/gate state"""
-        
+        """Get the state"""        
         self._log.debug('StateOne(%d): entering...' % axis)
-        try:
-            sta = State.On
-            status = "Stopped"
-                            
-            if self.proxy.ReadFPGA(0x06) > 0:
-                sta = State.Moving
-                status = "Moving"
-            self._log.debug('StateOne(%d): returning (%s, %s)' %
-                                    (axis, sta, status))
-        except Exception as e:
-            return State.Fault, 'Fault'
 
-        return sta, status
+        state = self.proxy.command_inout("State")
+        status = self.proxy.command_inout("Status")
+
+        return state, status
 
     def PrepareOne(self, axis, value, repetitions, latency_time, nb_starts):
-        self._log.debug('PrepareOne(%d): entering...' % axis)
-        # stop gate first
-        self.proxy.WriteFPGA([0x01,0])
-        # define gate width in micorseconds
-        self.proxy.WriteFPGA([0x03, int(value*1e6)])
+        self._log.info('PrepareOne(%d): entering...' % axis)
+
+        self.proxy.exposure = value*1000 # from s to ms
+        self.proxy.prepare()
+        if self.__freerunning:  # 
+            self.proxy.mode = 1
+        else:  # triggered
+            self.proxy.mode = 0
 
     def LoadOne(self, axis, value, repetitions, latency_time):
-        pass
+        self._log.info('LoadOne(%d): entering...' % axis)
+        self.proxy.stop()
+
+    def PreStartOne(self, axis, value):
+        self._log.info('PreStartOne(%d): entering...' % axis)
+        return True
 
     def StartOne(self, axis, value):
-        self._log.debug('StartOne(%d): entering...' % axis)
-        if self.__freerunning:
-            self.proxy.WriteFPGA([0x01,2])
-        else:  # triggered
-            self.proxy.WriteFPGA([0x01,1])
+        self._log.info('StartOne(%d): entering...' % axis)
+
+        self.proxy.start()
 
         self.__start_time = time.time()
 
     def StopOne(self, axis):
-        self._log.debug('AbortOne(%d): entering...' % axis)
-        self.proxy.WriteFPGA([0x01,0])
+        self._log.debug('StopOne(%d): entering...' % axis)
+        self.proxy.stop()
 
     def AbortOne(self, axis):
-        pass
+        self._log.debug('AbortOne(%d): entering...' % axis)        
+        self.proxy.stop()
 
     def getFreeRunning(self):
         return self.__freerunning
