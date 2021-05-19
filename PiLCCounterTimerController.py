@@ -18,9 +18,9 @@ class PiLCCounterTimerController(CounterTimerController):
                        }
     
     ctrl_attributes = {
-        "FreeRunning": {
-                Type: bool,
-                Description: "set PiLC gate to free-running mode",
+        "TriggerMode": {
+                Type: int,
+                Description: "mode of PiLC gate: 0 - free running 1 - triggered 2 - triggered & ccd",
                 Access : DataAccess.ReadWrite,
                 Memorized: Memorize,
             },
@@ -57,10 +57,7 @@ class PiLCCounterTimerController(CounterTimerController):
 
         self.proxy.exposure = value*1000 # from s to ms
         self.proxy.prepare()
-        if self.__freerunning:  # 
-            self.proxy.mode = 1
-        else:  # triggered
-            self.proxy.mode = 0
+        self.proxy.mode = self.__trigger_mode
 
     def LoadOne(self, axis, value, repetitions, latency_time):
         self._log.info('LoadOne(%d): entering...' % axis)
@@ -85,8 +82,11 @@ class PiLCCounterTimerController(CounterTimerController):
         self._log.debug('AbortOne(%d): entering...' % axis)        
         self.proxy.stop()
 
-    def getFreeRunning(self):
-        return self.__freerunning
+    def getTriggerMode(self):
+        return self.__trigger_mode
 
-    def setFreeRunning(self, value):
-        self.__freerunning = bool(value)
+    def setTriggerMode(self, value):
+        if value in [0, 1, 2]:
+            self.__trigger_mode = int(value)
+        else:
+            self._log.warning('trigger mode must be 0, 1, or 2!')
