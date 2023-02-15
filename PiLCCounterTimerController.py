@@ -71,16 +71,25 @@ class PiLCCounterTimerController(CounterTimerController):
     def StartOne(self, axis, value):
         self._log.info('StartOne(%d): entering...' % axis)
 
+    def StartAll(self):
+        self._log.info('StartAll(): entering...')
+
         self.proxy.start()
 
         self.__start_time = time.time()
 
     def StopOne(self, axis):
         self._log.debug('StopOne(%d): entering...' % axis)
+    
+    def StopAll(self):
+        self._log.debug('StopAll(): entering...')
         self.proxy.stop()
 
     def AbortOne(self, axis):
         self._log.debug('AbortOne(%d): entering...' % axis)
+
+    def AbortAll(self):
+        self._log.debug('AbortAll(): entering...')
         self.proxy.stop()
 
     def getTriggerMode(self):
