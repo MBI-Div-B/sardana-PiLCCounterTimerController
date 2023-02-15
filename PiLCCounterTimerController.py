@@ -1,7 +1,7 @@
 from sardana import State
 from sardana.pool.controller import CounterTimerController
 from sardana.pool.controller import Type, Description, DefaultValue, Access, DataAccess, Memorized, Memorize
-from tango import DeviceProxy
+from tango import DeviceProxy, Database
 import time
 import numpy as np
 
@@ -16,14 +16,14 @@ class PiLCCounterTimerController(CounterTimerController):
                                      Description: 'The FQDN of the PiLCTriggerGateGenerator Tango DS',
                                      DefaultValue: 'domain/family/member'},
                        }
-    
+
     ctrl_attributes = {
         "TriggerMode": {
-                Type: int,
-                Description: "mode of PiLC gate: 0 - free running 1 - triggered 2 - triggered & ccd",
-                Access : DataAccess.ReadWrite,
-                Memorized: Memorize,
-            },
+            Type: int,
+            Description: "mode of PiLC gate: 0 - free running 1 - triggered 2 - triggered & ccd rsxs 3 - triggered & ccd nexafs 4 - triggered & chopper rsxs",
+            Access: DataAccess.ReadWrite,
+            Memorize: Memorized,
+        },
     }
 
     MaxDevice = 1
@@ -31,7 +31,8 @@ class PiLCCounterTimerController(CounterTimerController):
     def __init__(self, inst, props, *args, **kwargs):
         """Constructor"""
         CounterTimerController.__init__(self, inst, props, *args, **kwargs)
-        self._log.info('PiLCTriggerGateGenerator Initialization on {:s} ...'.format(self.tangoFQDN))
+        self._log.info(
+            'PiLCTriggerGateGenerator Initialization on {:s} ...'.format(self.tangoFQDN))
         self.proxy = DeviceProxy(self.tangoFQDN)
         self._log.info('SUCCESS')
         self.__start_time = None
@@ -44,7 +45,7 @@ class PiLCCounterTimerController(CounterTimerController):
         return time.time()-self.__start_time
 
     def StateOne(self, axis):
-        """Get the state"""        
+        """Get the state"""
         self._log.debug('StateOne(%d): entering...' % axis)
 
         state = self.proxy.command_inout("State")
@@ -55,7 +56,7 @@ class PiLCCounterTimerController(CounterTimerController):
     def PrepareOne(self, axis, value, repetitions, latency_time, nb_starts):
         self._log.info('PrepareOne(%d): entering...' % axis)
 
-        self.proxy.exposure = value*1000 # from s to ms
+        self.proxy.exposure = value*1000  # from s to ms
         self.proxy.prepare()
         self.proxy.mode = self.__trigger_mode
 
@@ -79,14 +80,13 @@ class PiLCCounterTimerController(CounterTimerController):
         self.proxy.stop()
 
     def AbortOne(self, axis):
-        self._log.debug('AbortOne(%d): entering...' % axis)        
+        self._log.debug('AbortOne(%d): entering...' % axis)
         self.proxy.stop()
 
     def getTriggerMode(self):
         return self.__trigger_mode
 
     def setTriggerMode(self, value):
-        if value in [0, 1, 2]:
-            self.__trigger_mode = int(value)
-        else:
-            self._log.warning('trigger mode must be 0, 1, or 2!')
+        self.__trigger_mode = int(value)
+        if value not in [0, 1, 2, 3, 4]:
+            self._log.warning('trigger mode must be 0, 1, 2, 3, or 4!')
